@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDRS AI Rater — Prompt Architecture</title>
+<style>
+:root {
+  --blue-dark: #1B3A5C;
+  --blue-mid: #2E5C8A;
+  --blue-light: #4A90D9;
+  --blue-bg: #EBF2FA;
+  --green: #2E7D32;
+  --green-bg: #E8F5E9;
+  --orange: #E65100;
+  --orange-bg: #FFF3E0;
+  --purple: #6A1B9A;
+  --purple-bg: #F3E5F5;
+  --gray: #616161;
+  --gray-bg: #F5F5F5;
+  --red: #C62828;
+  --score0: #D32F2F;
+  --score1: #F57C00;
+  --score2: #FBC02D;
+  --score3: #66BB6A;
+  --score4: #2E7D32;
+  --bg: #FAFBFC;
+  --card: #FFFFFF;
+  --border: #E0E6ED;
+  --text: #2C3E50;
+  --text-light: #7F8C8D;
+  --sidebar-w: 260px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+a { color: var(--blue-mid); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* SIDEBAR */
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
+  background: var(--blue-dark); color: #fff; overflow-y: auto; z-index: 100;
+  padding: 20px 0; transition: transform 0.3s;
+}
+.sidebar h2 { font-size: 14px; padding: 0 20px; margin-bottom: 16px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1px; }
+.sidebar .logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
+.sidebar .logo h1 { font-size: 18px; font-weight: 700; }
+.sidebar .logo small { color: rgba(255,255,255,0.5); font-size: 11px; }
+.sidebar nav a {
+  display: block; padding: 8px 20px; color: rgba(255,255,255,0.8);
+  font-size: 13px; transition: all 0.2s; border-left: 3px solid transparent;
+}
+.sidebar nav a:hover, .sidebar nav a.active {
+  background: rgba(255,255,255,0.1); color: #fff; text-decoration: none;
+  border-left-color: var(--blue-light);
+}
+.sidebar nav a.sub { padding-left: 36px; font-size: 12px; color: rgba(255,255,255,0.6); }
+
+/* MAIN */
+.main { margin-left: var(--sidebar-w); padding: 40px 50px; max-width: 1000px; }
+
+/* SECTIONS */
+section { margin-bottom: 60px; }
+section > h2 { font-size: 28px; color: var(--blue-dark); border-bottom: 3px solid var(--blue-light); padding-bottom: 10px; margin-bottom: 24px; }
+section > h3 { font-size: 20px; color: var(--blue-mid); margin: 24px 0 12px; }
+h4 { font-size: 16px; color: var(--text); margin: 16px 0 8px; }
+p { margin-bottom: 12px; }
+ul, ol { margin: 8px 0 16px 24px; }
+li { margin-bottom: 4px; }
+
+/* CARDS */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.card h4 { margin-top: 0; }
+
+/* SOURCE BADGES */
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 10px;
+  border-radius: 12px; margin: 2px 4px 2px 0; white-space: nowrap; vertical-align: middle;
+}
+.badge-padesky { background: var(--blue-bg); color: var(--blue-mid); }
+.badge-adapted { background: var(--purple-bg); color: var(--purple); }
+.badge-research { background: var(--green-bg); color: var(--green); }
+.badge-clinical { background: var(--orange-bg); color: var(--orange); }
+.badge-design { background: var(--gray-bg); color: var(--gray); }
+
+.source-legend {
+  display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; background: var(--gray-bg);
+  border-radius: 8px; margin-bottom: 24px;
+}
+.source-legend .item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+
+/* FLOW DIAGRAM */
+.flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 30px 20px; background: var(--card); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 24px; justify-content: center; }
+.flow-box {
+  padding: 16px 20px; border-radius: 8px; text-align: center; font-size: 13px;
+  font-weight: 600; min-width: 130px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+.flow-box:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.flow-box small { display: block; font-weight: 400; font-size: 11px; margin-top: 4px; opacity: 0.8; }
+.flow-input { background: var(--gray-bg); border: 2px solid #bbb; color: var(--text); }
+.flow-system { background: var(--blue-bg); border: 2px solid var(--blue-mid); color: var(--blue-dark); }
+.flow-item { background: var(--green-bg); border: 2px solid var(--green); color: var(--green); }
+.flow-agg { background: var(--purple-bg); border: 2px solid var(--purple); color: var(--purple); }
+.flow-output { background: var(--orange-bg); border: 2px solid var(--orange); color: var(--orange); }
+.flow-arrow { font-size: 24px; color: var(--text-light); flex-shrink: 0; }
+
+/* SANDWICH DIAGRAM */
+.sandwich { max-width: 600px; margin: 20px auto; }
+.sandwich-layer {
+  padding: 14px 20px; text-align: center; font-size: 14px; font-weight: 600;
+  border: 2px solid; cursor: pointer; transition: all 0.2s;
+}
+.sandwich-layer:hover { filter: brightness(0.95); }
+.sandwich-layer.system { background: var(--blue-bg); border-color: var(--blue-mid); color: var(--blue-dark); border-radius: 12px 12px 0 0; }
+.sandwich-layer.knowledge { background: #E3F2FD; border-color: #64B5F6; color: #1565C0; }
+.sandwich-layer.item { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.sandwich-layer.transcript { background: var(--gray-bg); border-color: #999; color: var(--gray); border-radius: 0 0 12px 12px; }
+.sandwich-label { font-size: 11px; font-weight: 400; display: block; }
+
+/* ACCORDION */
+.accordion { margin-bottom: 8px; }
+.accordion-header {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s;
+  user-select: none;
+}
+.accordion-header:hover { background: var(--gray-bg); }
+.accordion-header .arrow { transition: transform 0.3s; font-size: 12px; color: var(--text-light); }
+.accordion-header.open .arrow { transform: rotate(90deg); }
+.accordion-body { display: none; padding: 16px 20px; border: 1px solid var(--border); border-top: 0; border-radius: 0 0 6px 6px; background: #FDFDFD; font-size: 14px; }
+.accordion-body.open { display: block; }
+
+/* TABS */
+.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+.tab {
+  padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+  border: 2px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0;
+  background: transparent; color: var(--text-light); transition: all 0.2s;
+  margin-bottom: -2px;
+}
+.tab:hover { color: var(--text); background: var(--gray-bg); }
+.tab.active { color: var(--blue-dark); background: var(--card); border-color: var(--border); border-bottom-color: var(--card); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* SCORE CARDS */
+.score-card {
+  border-left: 5px solid; padding: 12px 16px; margin-bottom: 10px; border-radius: 0 6px 6px 0;
+  background: var(--card); cursor: pointer; transition: all 0.2s;
+}
+.score-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.score-card.s0 { border-color: var(--score0); }
+.score-card.s1 { border-color: var(--score1); }
+.score-card.s2 { border-color: var(--score2); }
+.score-card.s3 { border-color: var(--score3); }
+.score-card.s4 { border-color: var(--score4); }
+.score-card .score-label { font-weight: 700; font-size: 15px; }
+.score-card .score-body { display: none; margin-top: 10px; font-size: 13px; line-height: 1.6; }
+.score-card .score-body.open { display: block; }
+
+/* STATS BOX */
+.stat-box { display: flex; gap: 20px; flex-wrap: wrap; margin: 16px 0; }
+.stat { text-align: center; padding: 16px 24px; background: var(--card); border-radius: 8px; border: 1px solid var(--border); min-width: 120px; }
+.stat .num { font-size: 32px; font-weight: 700; color: var(--blue-dark); }
+.stat .label { font-size: 12px; color: var(--text-light); }
+
+/* JSON EXAMPLE */
+.json-block { background: #1E1E2E; color: #CDD6F4; padding: 16px; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; overflow-x: auto; white-space: pre; margin: 12px 0; line-height: 1.5; }
+.json-key { color: #89B4FA; }
+.json-str { color: #A6E3A1; }
+.json-num { color: #FAB387; }
+
+/* ERROR LIST */
+.error-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.error-item:last-child { border-bottom: none; }
+.error-num { flex-shrink: 0; width: 28px; height: 28px; background: var(--orange-bg); color: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; padding: 20px; }
+  .menu-toggle { display: block; }
+}
+.menu-toggle { display: none; position: fixed; top: 10px; left: 10px; z-index: 200; background: var(--blue-dark); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 18px; }
+
+/* NOTES SYSTEM */
+.note-btn {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+  font-size: 11px; background: #FFF8E1; border: 1px solid #FFD54F; border-radius: 12px;
+  cursor: pointer; color: #F57F17; font-weight: 600; margin-left: 8px; vertical-align: middle;
+  transition: all 0.2s;
+}
+.note-btn:hover { background: #FFECB3; transform: scale(1.05); }
+.note-form {
+  margin: 12px 0; padding: 14px; background: #FFFDE7; border: 1px solid #FFD54F;
+  border-radius: 8px; display: none;
+}
+.note-form.open { display: block; }
+.note-form textarea {
+  width: 100%; min-height: 60px; border: 1px solid #E0E0E0; border-radius: 6px;
+  padding: 8px; font-family: inherit; font-size: 13px; resize: vertical; margin-bottom: 8px;
+}
+.note-form .note-actions { display: flex; gap: 8px; align-items: center; }
+.note-form .note-save {
+  padding: 6px 16px; background: var(--blue-mid); color: #fff; border: none;
+  border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+}
+.note-form .note-save:hover { background: var(--blue-dark); }
+.note-form .note-cancel {
+  padding: 6px 16px; background: #eee; color: var(--text); border: none;
+  border-radius: 6px; cursor: pointer; font-size: 12px;
+}
+.notes-list { margin: 8px 0; }
+.note-item {
+  padding: 8px 12px; margin: 4px 0; background: #FFFDE7; border-left: 3px solid #FFD54F;
+  border-radius: 0 6px 6px 0; font-size: 12px; position: relative;
+}
+.note-item .note-meta { font-size: 10px; color: var(--text-light); margin-bottom: 2px; }
+.note-item .note-delete {
+  position: absolute; top: 6px; right: 8px; background: none; border: none;
+  cursor: pointer; color: #999; font-size: 14px;
+}
+.note-item .note-delete:hover { color: var(--red); }
+.reviewer-modal {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 999; display: none;
+}
+.reviewer-modal.open { display: flex; }
+.reviewer-modal .modal-box {
+  background: #fff; border-radius: 12px; padding: 30px; max-width: 400px; width: 90%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2); text-align: center;
+}
+.reviewer-modal input {
+  width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 8px;
+  font-size: 16px; margin: 16px 0; text-align: center;
+}
+.reviewer-modal button {
+  padding: 10px 30px; background: var(--blue-mid); color: #fff; border: none;
+  border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+}
+.reviewer-modal button:hover { background: var(--blue-dark); }
+
+/* SIMULATION */
+.sim-container { background: var(--card); border: 2px solid var(--border); border-radius: 12px; overflow: hidden; }
+.sim-header { background: var(--blue-dark); color: #fff; padding: 14px 20px; font-weight: 600; font-size: 14px; }
+.sim-step {
+  padding: 16px 20px; border-bottom: 1px solid var(--border); cursor: pointer;
+  transition: background 0.2s; position: relative;
+}
+.sim-step:hover { background: var(--gray-bg); }
+.sim-step.active { background: #E3F2FD; border-left: 4px solid var(--blue-light); }
+.sim-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; background: var(--blue-bg); color: var(--blue-mid);
+  border-radius: 50%; font-weight: 700; font-size: 12px; margin-right: 10px;
+}
+.sim-step.active .sim-step-num { background: var(--blue-mid); color: #fff; }
+.sim-step-title { font-weight: 600; font-size: 14px; }
+.sim-detail { display: none; padding: 12px 20px 12px 56px; font-size: 13px; line-height: 1.7; background: #FAFAFA; border-bottom: 1px solid var(--border); }
+.sim-detail.open { display: block; }
+.sim-detail .hebrew-example { direction: rtl; text-align: right; background: #F5F5F5; padding: 10px 14px; border-radius: 6px; margin: 8px 0; font-family: 'Segoe UI', Arial, sans-serif; border-left: 3px solid var(--blue-light); }
+.sim-progress { display: flex; gap: 0; margin: 16px 20px; }
+.sim-progress-step {
+  flex: 1; height: 6px; background: #E0E0E0; transition: background 0.3s;
+}
+.sim-progress-step:first-child { border-radius: 3px 0 0 3px; }
+.sim-progress-step:last-child { border-radius: 0 3px 3px 0; }
+.sim-progress-step.done { background: var(--blue-light); }
+.sim-progress-step.current { background: var(--orange); }
+
+/* PRINT */
+@media print {
+  .sidebar, .menu-toggle, .note-btn, .note-form, .reviewer-modal { display: none !important; }
+  .main { margin-left: 0; max-width: 100%; padding: 20px; }
+  .accordion-body { display: block !important; }
+  .tab-content { display: block !important; }
+  .score-card .score-body { display: block !important; }
+  .flow-box { break-inside: avoid; }
+  section { break-before: page; }
+  .notes-list { border: 1px solid #ccc; padding: 8px; }
+}
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <h1>SDRS AI Rater</h1>
+    <small>Prompt Architecture v1.1</small>
+  </div>
+  <h2>Navigation</h2>
+  <nav>
+    <a href="#overview">Overview</a>
+    <a href="#flow" class="sub">Architecture Flow</a>
+    <a href="#sandwich" class="sub">Prompt Structure</a>
+    <a href="#sources">Source Legend</a>
+    <a href="#master">Master Instructions</a>
+    <a href="#master-role" class="sub">Role Definition</a>
+    <a href="#master-context" class="sub">Context (Yoav)</a>
+    <a href="#master-bias" class="sub">Anti-Bias Rules</a>
+    <a href="#master-procedure" class="sub">Rating Procedure</a>
+    <a href="#knowledge">Knowledge Base</a>
+    <a href="#kb-discovery" class="sub">Client Discovery</a>
+    <a href="#kb-collab" class="sub">Collaborative Empiricism</a>
+    <a href="#kb-stages" class="sub">4-Stage Model</a>
+    <a href="#kb-expert" class="sub">Expert-Level Markers</a>
+    <a href="#kb-errors" class="sub">Common Errors</a>
+    <a href="#kb-ptsd" class="sub">PTSD-Specific</a>
+    <a href="#items">Item Prompts</a>
+    <a href="#aggregation">Aggregation Pass</a>
+    <a href="#simulation">Simulation</a>
+  </nav>
+</aside>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+
+<!-- ===== OVERVIEW ===== -->
+<section id="overview">
+  <h2>SDRS AI Rater — Prompt Architecture</h2>
+  <p>This page documents the complete prompt system for the SDRS AI Rater (Article 6, MENTI Study). It shows <strong>what the bot knows</strong>, <strong>how it rates</strong>, and <strong>where each piece of knowledge comes from</strong>.</p>
+
+  <div class="stat-box">
+    <div class="stat"><div class="num">7</div><div class="label">Prompt Files</div></div>
+    <div class="stat"><div class="num">5</div><div class="label">API Passes</div></div>
+    <div class="stat"><div class="num">20</div><div class="label">Behavioral Anchors</div></div>
+    <div class="stat"><div class="num">27</div><div class="label">Common Errors Listed</div></div>
+    <div class="stat"><div class="num">9</div><div class="label">Anti-Bias Rules</div></div>
+  </div>
+
+  <h3 id="flow">Architecture Flow</h3>
+  <p>For each transcript, the AI rater makes <strong>5 separate API calls</strong> to Gemini 3 Pro. Each item is rated in complete isolation.</p>
+
+  <div class="flow">
+    <div class="flow-box flow-input" onclick="scrollTo('#items')">Transcript<small>Hebrew, 10 turns</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box flow-item" onclick="scrollTo('#items')" style="border-color:#C62828; color:#C62828; background:#FFEBEE;">Pass 1<small>Informational Q's</small></div>
+    <div class="flow-box flow-item" onclick="scrollTo('#items')" style="border-color:#E65100; color:#E65100; background:#FFF3E0;">Pass 2<small>Empathic Listening</small></div>
+    <div class="flow-box flow-item" onclick="scrollTo('#items')" style="border-color:#F9A825; color:#F57F17; background:#FFFDE7;">Pass 3<small>Summaries</small></div>
+    <div class="flow-box flow-item" onclick="scrollTo('#items')">Pass 4<small>Analytical/Synth. Q's</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box flow-agg" onclick="scrollTo('#aggregation')">Pass 5<small>Aggregation</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box flow-output">Report<small>Scores + Feedback</small></div>
+  </div>
+
+  <h3 id="sandwich">What Each Pass Receives</h3>
+  <p>Each of Passes 1-4 sends a <strong>system prompt</strong> + <strong>user prompt</strong> to the AI model:</p>
+
+  <div class="sandwich">
+    <div class="sandwich-layer system" onclick="scrollTo('#master')">
+      SYSTEM PROMPT: Master Instructions
+      <span class="sandwich-label">Role, Context, Anti-Bias Rules, Rating Procedure, Output Format</span>
+    </div>
+    <div class="sandwich-layer knowledge" onclick="scrollTo('#knowledge')">
+      + Deep Knowledge Base
+      <span class="sandwich-label">SD Theory, Collaborative Empiricism, 4-Stage Model, Expert Markers, PTSD Context</span>
+    </div>
+    <div class="sandwich-layer item" onclick="scrollTo('#items')">
+      USER PROMPT: Item-Specific Instructions
+      <span class="sandwich-label">Definition, 5 Behavioral Anchors, Focus Instructions, Common Errors</span>
+    </div>
+    <div class="sandwich-layer transcript">
+      + The Transcript to Rate
+      <span class="sandwich-label">Hebrew text, 10 therapist turns</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SOURCE LEGEND ===== -->
+<section id="sources">
+  <h2>Source Legend</h2>
+  <p>Every piece of content is tagged with its origin. This helps experts identify what needs review.</p>
+  <div class="source-legend">
+    <div class="item"><span class="badge badge-padesky">SDRS Manual v5.0</span> Directly from Padesky (2020) manual</div>
+    <div class="item"><span class="badge badge-adapted">Adapted</span> Original content adapted for text-based simulation</div>
+    <div class="item"><span class="badge badge-research">Research</span> From published academic literature</div>
+    <div class="item"><span class="badge badge-clinical">Clinical Knowledge</span> Clinical expertise — needs expert review</div>
+    <div class="item"><span class="badge badge-design">Design Choice</span> Prompt engineering decision with rationale</div>
+  </div>
+</section>
+
+<!-- ===== MASTER INSTRUCTIONS ===== -->
+<section id="master">
+  <h2>Master Instructions</h2>
+  <p><strong>File:</strong> <code>prompts/rater_master_instructions.md</code> &mdash; Injected as system prompt for ALL 5 passes.</p>
+
+  <!-- Role -->
+  <div class="accordion" id="master-role">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Role Definition
+      <span class="badge badge-design">Design Choice</span>
+    </div>
+    <div class="accordion-body">
+      <p><strong>"You are a clinical assessment instrument &mdash; the Socratic Dialogue Rating Scale (SDRS; Padesky, 2020), adapted for text-based simulation."</strong></p>
+      <p>You are NOT a therapist, supervisor, coach, or mentor. You are a <strong>MEASUREMENT TOOL</strong>.</p>
+      <p>Your job:</p>
+      <ol>
+        <li>Extract behavioral evidence from the transcript</li>
+        <li>Match that evidence to operationalized behavioral anchors</li>
+        <li>Assign a score (0-4) supported by that evidence</li>
+        <li>Justify why the score is not one level higher or lower</li>
+      </ol>
+      <p><span class="badge badge-design">Design Choice</span> The "measurement instrument" framing prevents the AI from drifting into supervisory mode, which tends to produce inflated, overly kind ratings.</p>
+    </div>
+  </div>
+
+  <!-- What You Rate -->
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      What You Rate (and Don't Rate)
+      <span class="badge badge-design">Design Choice</span>
+    </div>
+    <div class="accordion-body">
+      <p>Rate ONLY the <strong>therapist's behavior</strong>. Do NOT rate:</p>
+      <ul>
+        <li>The client's behavior, cooperation, or progress</li>
+        <li>The overall "quality" or "feel" of the session</li>
+        <li>Whether you "liked" the therapist's approach</li>
+        <li>Anything not captured by the specific SDRS item being rated</li>
+      </ul>
+      <p><span class="badge badge-design">Design Choice</span> Explicit exclusion list prevents the AI from rating based on overall impression rather than specific item criteria.</p>
+    </div>
+  </div>
+
+  <!-- Context -->
+  <div class="accordion" id="master-context">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Context: Yoav &amp; the Simulation
+      <span class="badge badge-adapted">Adapted</span>
+    </div>
+    <div class="accordion-body">
+      <p><strong>Yoav's profile:</strong> 24-year-old former combat soldier (elite reconnaissance unit), suffering from PTSD after his close friend Nadav was killed in combat. Yoav was ~15 meters away, unable to reach Nadav through heavy fire. Nadav died in Yoav's arms.</p>
+      <p><strong>Core belief:</strong> "If I had acted faster, Nadav would be alive. I am guilty of his death."</p>
+      <p><strong>Format:</strong> 10-turn text-based interaction. Session 4 (background already collected).</p>
+      <p><strong>Language:</strong> Hebrew. Analysis identifies Hebrew evidence; reasoning in English.</p>
+      <p><span class="badge badge-adapted">Adapted</span> Context based on the Yoav simulation character built in the DERBI project (v14-v15). The character was designed by Elad Refoua for MENTI.</p>
+    </div>
+  </div>
+
+  <!-- Anti-Bias Rules -->
+  <div class="accordion" id="master-bias">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      9 Anti-Bias Rules
+      <span class="badge badge-design">Design Choice</span>
+      <span class="badge badge-clinical">Clinical Knowledge</span>
+    </div>
+    <div class="accordion-body">
+      <div class="error-item"><div class="error-num">1</div><div><strong>Evidence Before Rating</strong> &mdash; NEVER form a global impression first. Extract ALL evidence BEFORE assigning any score. <span class="badge badge-design">Design Choice</span></div></div>
+      <div class="error-item"><div class="error-num">2</div><div><strong>Anti-Halo Effect</strong> &mdash; Each item is INDEPENDENT. A therapist can score 4 on one item and 0 on another. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">3</div><div><strong>Anti-Leniency Bias</strong> &mdash; Rate the BEHAVIOR AS EXECUTED, not the intention. Do not give credit for "trying." <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">4</div><div><strong>Anti-Length Bias</strong> &mdash; Rate QUALITY, not QUANTITY. 5 excellent questions outscores 20 mediocre ones. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">5</div><div><strong>Anti-Recency Bias</strong> &mdash; Evidence from ALL parts of the transcript carries EQUAL weight. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">6</div><div><strong>Anti-Central Tendency</strong> &mdash; Scores of 0 and 4 are NORMAL. Includes expected distribution: 0 (~15-20%), 1 (~20-25%), 2 (~25-30%), 3 (~20-25%), 4 (~10-15%). <span class="badge badge-design">Design Choice</span></div></div>
+      <div class="error-item"><div class="error-num">7</div><div><strong>AI Client Adjustment</strong> &mdash; Yoav (AI) may be more cooperative than a real PTSD patient. Rate the therapist's skill independently of client cooperation. <span class="badge badge-adapted">Adapted</span></div></div>
+      <div class="error-item"><div class="error-num">8</div><div><strong>Absence = Evidence of Absence</strong> &mdash; If a behavior is not present, it scores 0. Don't infer "they probably would have done it." <span class="badge badge-padesky">SDRS Manual v5.0</span></div></div>
+      <div class="error-item"><div class="error-num">9</div><div><strong>10-Turn Calibration</strong> &mdash; Expectations calibrated for 10 turns. Score 4 = outstanding for this format. <span class="badge badge-adapted">Adapted</span></div></div>
+    </div>
+  </div>
+
+  <!-- Rating Procedure -->
+  <div class="accordion" id="master-procedure">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Rating Procedure (6 Steps)
+      <span class="badge badge-design">Design Choice</span>
+    </div>
+    <div class="accordion-body">
+      <ol>
+        <li><strong>Read the full transcript</strong> without forming any judgment.</li>
+        <li><strong>Extract evidence:</strong> Quote exact Hebrew text for each relevant therapist turn. Classify each quote. Note turn number.</li>
+        <li><strong>Identify absent behaviors:</strong> What SHOULD have been present (scores 3-4) but wasn't?</li>
+        <li><strong>Determine predominant pattern:</strong> What's the overall quality? Any outlier moments?</li>
+        <li><strong>Assign score (0-4):</strong> Integer only, no half-points.</li>
+        <li><strong>Justify:</strong> Why this score? Why NOT one higher? Why NOT one lower?</li>
+      </ol>
+      <p><span class="badge badge-design">Design Choice</span> The "evidence-before-rating" procedure and "why not higher/lower" justification prevent the AI from choosing a score first and then cherry-picking evidence to support it.</p>
+    </div>
+  </div>
+
+  <!-- Output Format -->
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      JSON Output Format
+      <span class="badge badge-design">Design Choice</span>
+    </div>
+    <div class="accordion-body">
+<div class="json-block">{
+  <span class="json-key">"item"</span>: <span class="json-str">"Item X: [Name]"</span>,
+  <span class="json-key">"score"</span>: <span class="json-num">0-4</span>,
+  <span class="json-key">"evidence"</span>: [
+    {
+      <span class="json-key">"turn"</span>: <span class="json-num">3</span>,
+      <span class="json-key">"quote"</span>: <span class="json-str">"[exact Hebrew text]"</span>,
+      <span class="json-key">"classification"</span>: <span class="json-str">"[what behavior]"</span>,
+      <span class="json-key">"level"</span>: <span class="json-str">"[score level this reflects]"</span>
+    }
+  ],
+  <span class="json-key">"absent_behaviors"</span>: [<span class="json-str">"..."</span>],
+  <span class="json-key">"predominant_pattern"</span>: <span class="json-str">"..."</span>,
+  <span class="json-key">"justification"</span>: <span class="json-str">"..."</span>,
+  <span class="json-key">"why_not_higher"</span>: <span class="json-str">"..."</span>,
+  <span class="json-key">"why_not_lower"</span>: <span class="json-str">"..."</span>
+}</div>
+      <p><span class="badge badge-design">Design Choice</span> JSON format for machine parsing. 3-tier fallback parsing in the pipeline (direct JSON &rarr; code block extraction &rarr; regex).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== KNOWLEDGE BASE ===== -->
+<section id="knowledge">
+  <h2>Socratic Dialogue Knowledge Base</h2>
+  <p><strong>File:</strong> <code>prompts/socratic_dialogue_knowledge_base.md</code> &mdash; Embedded within the Master Instructions system prompt.</p>
+  <p>This gives the rater deep understanding of <em>what quality Socratic Dialogue IS</em>, beyond just pattern-matching against behavioral anchors.</p>
+
+  <div class="accordion" id="kb-discovery">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      The Goal: Client Discovery
+      <span class="badge badge-padesky">SDRS Manual v5.0</span>
+      <span class="badge badge-research">Padesky 1993, 2019</span>
+    </div>
+    <div class="accordion-body">
+      <p>SD's defining goal is <strong>client discovery</strong> &mdash; helping the client arrive at new understanding through their OWN reasoning, not the therapist telling them what to think.</p>
+      <p>The distinction between "changing minds" (didactic) and "guiding discovery" (Socratic) is from Padesky (1993): the therapist guides the process but does NOT supply conclusions.</p>
+      <p><strong>The paradox:</strong> The therapist often suspects what the client might discover. But effective SD requires NOT shortcutting to the conclusion. When the therapist provides it, the client hears advice. When the client discovers it, they experience genuine insight.</p>
+      <p><span class="badge badge-padesky">SDRS Manual v5.0</span> Core concept from the manual: "The goal of Socratic Dialogue is to promote client discovery (Padesky, 1993)."</p>
+      <p><span class="badge badge-research">Braun &amp; Strunk, 2015</span> SD predicts symptom reduction independently of therapeutic alliance.</p>
+    </div>
+  </div>
+
+  <div class="accordion" id="kb-collab">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Collaborative Empiricism
+      <span class="badge badge-padesky">SDRS Manual v5.0</span>
+      <span class="badge badge-research">Beck 1967; Overholser 2011</span>
+    </div>
+    <div class="accordion-body">
+      <p>SD is built on <strong>collaborative empiricism</strong> (Beck, 1967) &mdash; therapist and client work "shoulder to shoulder" as co-investigators.</p>
+      <h4>What it looks like:</h4>
+      <ul>
+        <li>Back-and-forth conversation, not therapist mini-lectures</li>
+        <li>Questions asked with genuine curiosity, not to test or trap</li>
+        <li>Therapist adopts the client's language, metaphors, imagery</li>
+        <li>Equal curiosity for evidence that fits AND doesn't fit the model</li>
+      </ul>
+      <h4>What violates it:</h4>
+      <ul>
+        <li>Leading questions channeling toward a specific answer</li>
+        <li>Ignoring client responses that don't fit the hypothesis</li>
+        <li>Framing questions so only one answer is socially acceptable</li>
+      </ul>
+      <p><span class="badge badge-padesky">SDRS Manual v5.0</span> The collaboration and empiricism lists are directly from the manual (pp. 1-2).</p>
+      <p><span class="badge badge-research">Overholser, 2011</span> Framework connecting collaborative empiricism, guided discovery, and Socratic method as core CBT processes.</p>
+    </div>
+  </div>
+
+  <div class="accordion" id="kb-stages">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      The 4-Stage Model in Depth
+      <span class="badge badge-padesky">SDRS Manual v5.0</span>
+      <span class="badge badge-clinical">Clinical Knowledge</span>
+    </div>
+    <div class="accordion-body">
+      <p><span class="badge badge-padesky">SDRS Manual v5.0</span> The 4 stages and their descriptions come directly from Padesky's manual (pp. 2-5).</p>
+
+      <h4>Stage 1: Informational Questions</h4>
+      <p>Gathers raw material for discovery. Expert questioning is model-informed (CPT stuck points, hindsight bias, responsibility attribution), approaches topics from multiple angles, and pursues detail with follow-up.</p>
+      <p><span class="badge badge-clinical">Clinical Knowledge</span> The PTSD-specific model-informed questioning examples (stuck points, hindsight bias) are clinical knowledge applied to Yoav's context.</p>
+
+      <h4>Stage 2: Empathic Listening</h4>
+      <p>NOT passive &mdash; actively shapes dialogue by building alliance, developing shared language, identifying paths for inquiry, and noticing what's missing.</p>
+      <p><strong>Interpretive drift</strong>: When the therapist's reflection subtly changes what the client said. E.g., Client: "I should have reached him faster" &rarr; Therapist: "So you feel like you failed" &mdash; the client didn't say "failed."</p>
+      <p><span class="badge badge-padesky">SDRS Manual v5.0</span> The concept of accurate reflection using client's exact words is from Padesky (2019), cited in the manual.</p>
+      <p><span class="badge badge-clinical">Clinical Knowledge</span> The term "interpretive drift" and its detailed examples are clinical knowledge.</p>
+
+      <h4>Stage 3: Summaries</h4>
+      <p>Creates the visible foundation for discovery. Without a summary, the client must hold all information in memory while synthesizing &mdash; cognitively overwhelming.</p>
+      <p><span class="badge badge-padesky">SDRS Manual v5.0</span> The importance of summaries and their written form is directly from the manual (pp. 4-5).</p>
+      <p><span class="badge badge-adapted">Adapted</span> The distinction between minor/major summaries in text format is an adaptation.</p>
+
+      <h4>Stage 4: Analytical/Synthesizing Questions</h4>
+      <p>Where discovery happens. Synthesizing = "How do these fit together?" Analytical = "How could you use this?"</p>
+      <p><span class="badge badge-padesky">SDRS Manual v5.0</span> The definitions and examples of analytical vs. synthesizing questions come directly from the manual (pp. 5-6).</p>
+    </div>
+  </div>
+
+  <div class="accordion" id="kb-expert">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Expert-Level Markers
+      <span class="badge badge-research">Kazantzis et al. 2018</span>
+      <span class="badge badge-clinical">Clinical Knowledge</span>
+    </div>
+    <div class="accordion-body">
+      <ol>
+        <li><strong>Genuine Curiosity</strong> &mdash; The single best predictor (Padesky, 2020). Questions specific to THIS client, follows unexpected threads. <span class="badge badge-padesky">SDRS Manual v5.0</span></li>
+        <li><strong>Strategic Question Sequencing</strong> &mdash; Concrete details &rarr; emotional experience &rarr; meanings &rarr; patterns &rarr; synthesis. <span class="badge badge-clinical">Clinical Knowledge</span></li>
+        <li><strong>Seamless Stage Integration</strong> &mdash; Empathic listening woven throughout, minor summaries during gathering, analytical questions as natural culmination. <span class="badge badge-clinical">Clinical Knowledge</span></li>
+        <li><strong>Client-Centered Discovery</strong> &mdash; Resists supplying insights. Discoveries attributed to the client. <span class="badge badge-research">Kazantzis et al. 2018</span> Delphi panel identified the spectrum from therapist-suggested to client-discovered insights.</li>
+        <li><strong>Adaptive Flexibility</strong> &mdash; When client resists, rephrases rather than abandoning. Resistance met with curiosity. <span class="badge badge-clinical">Clinical Knowledge</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="accordion" id="kb-errors">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Common Therapist Errors to Detect (11)
+      <span class="badge badge-clinical">Clinical Knowledge</span>
+      <span class="badge badge-research">Various</span>
+    </div>
+    <div class="accordion-body">
+      <h4>Conceptual Errors</h4>
+      <div class="error-item"><div class="error-num">1</div><div><strong>Socratic "Trap"</strong> &mdash; Predetermined conclusion, questions systematically lead there. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">2</div><div><strong>Question-Based Lecturing</strong> &mdash; Psychoeducation disguised as questions. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">3</div><div><strong>Premature Synthesis</strong> &mdash; Jumping to analytical questions before gathering enough information. <span class="badge badge-padesky">SDRS Manual v5.0</span> Implied by the stage sequence.</div></div>
+      <div class="error-item"><div class="error-num">4</div><div><strong>Advice Disguised as Questions</strong> &mdash; Suggestions with question marks. <span class="badge badge-research">TherapistAid</span></div></div>
+
+      <h4>Process Errors</h4>
+      <div class="error-item"><div class="error-num">5</div><div><strong>Checklist Questioning</strong> &mdash; Mental checklist without genuine curiosity or follow-up. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">6</div><div><strong>Emotional Bypassing</strong> &mdash; Ignoring emotional content to maintain investigative structure. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">7</div><div><strong>Missing the Summary</strong> &mdash; Good questions and analysis, but no consolidation step. <span class="badge badge-padesky">SDRS Manual v5.0</span></div></div>
+      <div class="error-item"><div class="error-num">8</div><div><strong>Answering Own Questions</strong> &mdash; Asks analytical Q, then provides the answer. <span class="badge badge-clinical">Clinical Knowledge</span></div></div>
+      <div class="error-item"><div class="error-num">9</div><div><strong>Credit Theft</strong> &mdash; Taking credit for client's discovery. <span class="badge badge-padesky">SDRS Manual v5.0</span> Manual emphasizes "credit is given to client for discoveries made."</div></div>
+
+      <h4>Text-Based Specific</h4>
+      <div class="error-item"><div class="error-num">10</div><div><strong>Length = Quality</strong> &mdash; Longer messages assumed to be better. <span class="badge badge-adapted">Adapted</span></div></div>
+      <div class="error-item"><div class="error-num">11</div><div><strong>Monologue Turns</strong> &mdash; Multiple questions + reflections + advice in one message. <span class="badge badge-adapted">Adapted</span></div></div>
+    </div>
+  </div>
+
+  <div class="accordion" id="kb-ptsd">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      PTSD-Specific Considerations
+      <span class="badge badge-clinical">Clinical Knowledge</span>
+      <span class="badge badge-research">CPT literature</span>
+    </div>
+    <div class="accordion-body">
+      <ul>
+        <li><strong>Evidence-based questioning:</strong> CPT stuck points, hindsight bias ("Seeing it with what you know NOW vs. THEN?"), responsibility attribution ("Who controlled whether those 15 meters were crossable?") <span class="badge badge-clinical">Clinical Knowledge</span></li>
+        <li><strong>Respecting the belief's function:</strong> Self-blame preserves sense of control. Good SD explores respectfully, doesn't attack. <span class="badge badge-clinical">Clinical Knowledge</span></li>
+        <li><strong>Pacing:</strong> SD with PTSD cannot be rushed. Space for emotional processing. <span class="badge badge-research">CPT literature</span></li>
+        <li><strong>Not invalidating:</strong> "Help me understand what being responsible means to you" NOT "But you know it wasn't your fault, right?" <span class="badge badge-clinical">Clinical Knowledge</span></li>
+        <li><strong>AI client factor:</strong> Yoav may respond more cooperatively than a real PTSD client. Rate technique independently. <span class="badge badge-adapted">Adapted</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Genuine vs. Fake Discovery &amp; "Yes, But..." Signal
+      <span class="badge badge-padesky">SDRS Manual v5.0</span>
+      <span class="badge badge-research">Kazantzis et al. 2018</span>
+    </div>
+    <div class="accordion-body">
+      <h4>Genuine Discovery</h4>
+      <p>Client expresses surprise, uses own language, makes connections therapist didn't suggest, applies insight beyond immediate focus.</p>
+      <h4>NOT Discovery</h4>
+      <ul>
+        <li><strong>Compliance:</strong> Therapist states conclusion, client agrees</li>
+        <li><strong>Rhetorical persuasion:</strong> Leading question leaves only one acceptable answer</li>
+        <li><strong>Parroting:</strong> Client repeats therapist's phrasing without genuine engagement</li>
+      </ul>
+      <p><span class="badge badge-research">Kazantzis et al. 2018</span> Delphi panel identified 3 types: therapist-suggested, therapist-guided, independently discovered.</p>
+      <h4>The "Yes, But..." Signal</h4>
+      <p><span class="badge badge-padesky">SDRS Manual v5.0</span> "When clients say 'Yes, but...' during SD this is most often a signal that the therapist has given advice or drawn conclusions for the client." Clients rarely say this when making their own discoveries.</p>
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="accordion-header" onclick="toggleAcc(this)">
+      <span class="arrow">&#9654;</span>
+      Research Evidence
+      <span class="badge badge-research">Multiple Studies</span>
+    </div>
+    <div class="accordion-body">
+      <ul>
+        <li><span class="badge badge-research">Braun &amp; Strunk, 2015</span> Greater Socratic questioning predicts greater symptom reduction in CBT, independently of therapeutic alliance. 1 SD increase predicts 1.51-point BDI-II decrease next session.</li>
+        <li><span class="badge badge-research">Braun et al., 2022</span> The effect is mediated by cognitive change &mdash; SD works because it promotes client's own cognitive restructuring.</li>
+        <li><span class="badge badge-research">Flemotomos et al., 2022</span> Lyssn.io: AI assessment achieves 100% of human reliability on CTRS total scores. Validates AI-based therapy competence rating.</li>
+        <li><span class="badge badge-research">Kazantzis et al., 2018</span> Delphi panel on SD: identified stylistic aspects and the discovery spectrum.</li>
+        <li><span class="badge badge-research">Overholser, 2011</span> Collaborative empiricism, guided discovery, and the Socratic method as core CBT processes.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ITEM PROMPTS ===== -->
+<section id="items">
+  <h2>Item Prompts</h2>
+  <p>Each item has its own prompt file with: definition, behavioral anchors (0-4), focus instructions, and common rating errors.</p>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab(this, 'tab-item1')">Item 1: Informational Q's</div>
+    <div class="tab" onclick="switchTab(this, 'tab-item2')">Item 2: Empathic Listening</div>
+    <div class="tab" onclick="switchTab(this, 'tab-item3')">Item 3: Summaries</div>
+    <div class="tab" onclick="switchTab(this, 'tab-item4')">Item 4: Analytical/Synth. Q's</div>
+  </div>
+
+  <!-- ITEM 1 -->
+  <div class="tab-content active" id="tab-item1">
+    <p><strong>File:</strong> <code>prompts/rater_prompt_item1.md</code></p>
+    <div class="card">
+      <h4>Definition <span class="badge badge-padesky">SDRS Manual v5.0</span></h4>
+      <p>Given the session context, informational questions asked were appropriate, asked with genuine curiosity, engaged the client, and pursued until sufficient detail was obtained.</p>
+    </div>
+
+    <h4>Behavioral Anchors <span class="badge badge-adapted">Adapted</span></h4>
+    <div class="score-card s0" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score0)">Score 0 &mdash; Needs Significant Improvement</div><div class="score-body">No informational questions, OR entirely closed-ended/leading/rhetorical/irrelevant. More advice-giving than information-gathering. Examples: "You should try to forgive yourself" (advice). "Don't you think it's time to move on?" (leading). Hebrew patterns: "?...אתה לא חושב ש" (leading), "...אתה צריך" (advice).</div></div>
+    <div class="score-card s1" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score1)">Score 1 &mdash; Needs Improvement</div><div class="score-body">Some questions present but mostly closed-ended, minimal follow-up, checklist-like, surface-level. Examples: "Were you scared?" (closed). "How are you sleeping? And your appetite?" (checklist).</div></div>
+    <div class="score-card s2" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score2)">Score 2 &mdash; Competent</div><div class="score-body">Several open-ended questions, some curiosity, some follow-up but inconsistent. Shows awareness of clinical framework. Topic from one angle. Examples: "What was going through your mind when that happened?" (good). Misses some relevant areas.</div></div>
+    <div class="score-card s3" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score3)">Score 3 &mdash; Strengths in Evidence</div><div class="score-body">Predominantly open-ended with genuine curiosity. Good follow-up. Model-informed (CPT stuck points). Topic from 2+ angles. Minor gaps. Examples: "Tell me about the conditions when you tried to reach Nadav" (specific). "If another commander described the same situation, what would you think?" (multiple perspectives).</div></div>
+    <div class="score-card s4" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score4)">Score 4 &mdash; Outstanding Strength</div><div class="score-body">All open-ended, genuinely curious. Excellent follow-up. Model + case conceptualization. 3+ angles. Notices what's missing. Adapts to resistance. Examples: "What does 'fast enough' look like in your mind?" (examining assumptions). "I notice you haven't mentioned what Nadav meant to you personally" (noticing absence).</div></div>
+
+    <h4>Focus Dimensions (6) <span class="badge badge-adapted">Adapted</span></h4>
+    <p>A. Question Type (open/closed/leading/rhetorical) &bull; B. Curiosity (genuine vs. procedural) &bull; C. Follow-Up Depth &bull; D. Clinical Relevance (model-informed) &bull; E. Multiple Perspectives &bull; F. Client Engagement (supplementary only)</p>
+
+    <h4>Common Errors (7) <span class="badge badge-clinical">Clinical Knowledge</span></h4>
+    <div class="error-item"><div class="error-num">1</div><div>Confusing reflections (Item 2) with questions</div></div>
+    <div class="error-item"><div class="error-num">2</div><div>Confusing analytical questions (Item 4) with informational</div></div>
+    <div class="error-item"><div class="error-num">3</div><div>Crediting quantity over quality</div></div>
+    <div class="error-item"><div class="error-num">4</div><div>Inflating score due to smooth interaction</div></div>
+    <div class="error-item"><div class="error-num">5</div><div>Ignoring leading questions as negative indicators</div></div>
+    <div class="error-item"><div class="error-num">6</div><div>Confusing curiosity language with genuine curiosity</div></div>
+    <div class="error-item"><div class="error-num">7</div><div>Rating based on what could have been asked</div></div>
+  </div>
+
+  <!-- ITEM 2 -->
+  <div class="tab-content" id="tab-item2">
+    <p><strong>File:</strong> <code>prompts/rater_prompt_item2.md</code></p>
+    <div class="card">
+      <h4>Definition <span class="badge badge-padesky">SDRS Manual v5.0</span></h4>
+      <p>Therapist showed signs of appropriate empathy through language. Used accurate reflections incorporating client language (imagery, metaphors) without interpretive drift.</p>
+    </div>
+    <div class="card" style="border-left: 4px solid var(--purple);">
+      <h4>Text-Based Adaptation <span class="badge badge-adapted">Adapted</span></h4>
+      <p>Original SDRS includes nonverbal cues (facial expressions, vocal inflections, eye contact). In text, empathy assessed ONLY through: word choice, reflection accuracy, client language adoption, metaphor handling, noticing missing elements, timing/pacing.</p>
+      <p><strong>Standard is HIGH</strong> because text carries the entire empathic signal. Generic "I understand" is weak evidence.</p>
+    </div>
+
+    <h4>Behavioral Anchors <span class="badge badge-adapted">Adapted</span></h4>
+    <div class="score-card s0" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score0)">Score 0 &mdash; Needs Significant Improvement</div><div class="score-body">No reflections, misnames emotions, ignores emotional content, uses only own language, robotic/detached. Example: Yoav shares guilt &rarr; therapist asks next question without acknowledgment.</div></div>
+    <div class="score-card s1" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score1)">Score 1 &mdash; Needs Improvement</div><div class="score-body">Reflections present but inaccurate (interpretive drift). Wrong moments/intensity. Mostly therapist's words. Example: Yoav says "I should have reached him faster" &rarr; "So you feel like you failed as a commander" (added "failed" and "commander").</div></div>
+    <div class="score-card s2" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score2)">Score 2 &mdash; Competent</div><div class="score-body">Several accurate reflections, some client language, generally appropriate empathy. Minor interpretive drift. No missing elements noticed. Reflections serve dialogue but don't deepen it.</div></div>
+    <div class="score-card s3" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score3)">Score 3 &mdash; Strengths in Evidence</div><div class="score-body">Predominantly Yoav's exact language. Empathy matches mood. Metaphors adopted. Missing elements noticed. Accuracy checked once. Example: "You keep coming back to those 15 meters &mdash; they seem to carry a lot of weight."</div></div>
+    <div class="score-card s4" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score4)">Score 4 &mdash; Outstanding Strength</div><div class="score-body">Consistently exact words. Precisely calibrated empathy. All metaphors adopted and explored. Every emotional moment acknowledged. Missing elements skillfully inquired about. Accuracy checked regularly. Example: "A wall &mdash; 15 meters felt like something impossible to get through. Tell me about that wall."</div></div>
+
+    <h4>Common Errors (7) <span class="badge badge-clinical">Clinical Knowledge</span></h4>
+    <div class="error-item"><div class="error-num">1</div><div>Confusing politeness/warmth with empathy (accuracy is key)</div></div>
+    <div class="error-item"><div class="error-num">2</div><div>Missing interpretive drift</div></div>
+    <div class="error-item"><div class="error-num">3</div><div>Crediting generic empathic phrases</div></div>
+    <div class="error-item"><div class="error-num">4</div><div>Ignoring missed emotional moments</div></div>
+    <div class="error-item"><div class="error-num">5</div><div>Confusing empathy (Item 2) with summaries (Item 3)</div></div>
+    <div class="error-item"><div class="error-num">6</div><div>Giving credit for client cooperation</div></div>
+    <div class="error-item"><div class="error-num">7</div><div>Overlooking jargon introduction as negative indicator</div></div>
+  </div>
+
+  <!-- ITEM 3 -->
+  <div class="tab-content" id="tab-item3">
+    <p><strong>File:</strong> <code>prompts/rater_prompt_item3.md</code></p>
+    <div class="card">
+      <h4>Definition <span class="badge badge-padesky">SDRS Manual v5.0</span></h4>
+      <p>Therapist initiates summaries at appropriate times. Summaries accurately highlight the most important client observations in the client's own words and, when possible, are collaboratively created.</p>
+    </div>
+    <div class="card" style="border-left: 4px solid var(--purple);">
+      <h4>Text-Based Adaptation <span class="badge badge-adapted">Adapted</span></h4>
+      <p>In text, ALL therapist output is "written." A summary must be a <strong>DISTINCT, STRUCTURED CONSOLIDATION</strong> of multiple points from across the conversation &mdash; not just any sentence.</p>
+      <p><strong>Critical test:</strong> Does this message synthesize information from MULTIPLE earlier points? If it only reflects one point, it's Item 2, not Item 3.</p>
+      <p><strong>Minor summary:</strong> Briefly consolidates 2-3 points. <strong>Major summary:</strong> Comprehensive structured review of key themes.</p>
+    </div>
+
+    <h4>Behavioral Anchors <span class="badge badge-adapted">Adapted</span></h4>
+    <div class="score-card s0" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score0)">Score 0 &mdash; Needs Significant Improvement</div><div class="score-body">No summaries at all. Each turn independent. Conversation is entirely Q&A with no pauses to consolidate.</div></div>
+    <div class="score-card s1" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score1)">Score 1 &mdash; Needs Improvement</div><div class="score-body">One brief summary but inaccurate/incomplete, misses key points, uses therapist's language, poor timing, no collaboration.</div></div>
+    <div class="score-card s2" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score2)">Score 2 &mdash; Competent</div><div class="score-body">At least one structured summary. Captures main themes. Mostly Yoav's language. Reasonably accurate. Some collaboration attempt.</div></div>
+    <div class="score-card s3" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score3)">Score 3 &mdash; Strengths in Evidence</div><div class="score-body">Well-structured comprehensive summary + minor summaries throughout. Accurate, Yoav's words. Collaborative. Includes emotions, not just facts. Sets up analytical questions.</div></div>
+    <div class="score-card s4" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score4)">Score 4 &mdash; Outstanding Strength</div><div class="score-body">Multiple strategic summaries. Major summary is comprehensive, exact words, emotional nuance. Collaboratively constructed. Captures patterns/contradictions. Invites discovery.</div></div>
+
+    <h4>Common Errors (6) <span class="badge badge-clinical">Clinical Knowledge</span></h4>
+    <div class="error-item"><div class="error-num">1</div><div>Confusing single-point reflection with summary</div></div>
+    <div class="error-item"><div class="error-num">2</div><div>Failing to notice when NO summary exists (score = 0)</div></div>
+    <div class="error-item"><div class="error-num">3</div><div>Crediting client's self-summary as therapist behavior</div></div>
+    <div class="error-item"><div class="error-num">4</div><div>Confusing long turn with summary</div></div>
+    <div class="error-item"><div class="error-num">5</div><div>Over-crediting poorly timed summary (too early)</div></div>
+    <div class="error-item"><div class="error-num">6</div><div>Ignoring minor summaries</div></div>
+  </div>
+
+  <!-- ITEM 4 -->
+  <div class="tab-content" id="tab-item4">
+    <p><strong>File:</strong> <code>prompts/rater_prompt_item4.md</code></p>
+    <div class="card">
+      <h4>Definition <span class="badge badge-padesky">SDRS Manual v5.0</span></h4>
+      <p>After a period of SD, Analytical or Synthesizing questions are asked that require the client to consolidate learning and/or apply what was discussed. Questions link to evidence-based models, case conceptualization, and/or treatment plan.</p>
+    </div>
+    <div class="card" style="border-left: 4px solid var(--red);">
+      <h4>Critical: Distinguishing from Item 1 <span class="badge badge-adapted">Adapted</span> <span class="badge badge-clinical">Clinical Knowledge</span></h4>
+      <p>The most common rating error. Decision rule: Does the question ask the client to <strong>REPORT</strong> (Item 1) or to <strong>DISCOVER</strong> (Item 4)?</p>
+      <table style="width:100%; border-collapse:collapse; margin:12px 0; font-size:13px;">
+        <tr style="background:var(--gray-bg);"><th style="padding:8px; text-align:left;">Dimension</th><th style="padding:8px;">Item 1: Informational</th><th style="padding:8px;">Item 4: Analytical/Synth.</th></tr>
+        <tr><td style="padding:6px; border-bottom:1px solid var(--border);">Function</td><td style="padding:6px; border-bottom:1px solid var(--border);">GATHER data</td><td style="padding:6px; border-bottom:1px solid var(--border);">PROCESS/CONNECT/APPLY</td></tr>
+        <tr><td style="padding:6px; border-bottom:1px solid var(--border);">Direction</td><td style="padding:6px; border-bottom:1px solid var(--border);">Info flows FROM client</td><td style="padding:6px; border-bottom:1px solid var(--border);">Insight flows WITHIN client</td></tr>
+        <tr><td style="padding:6px; border-bottom:1px solid var(--border);">Timing</td><td style="padding:6px; border-bottom:1px solid var(--border);">Earlier in SD</td><td style="padding:6px; border-bottom:1px solid var(--border);">After info gathered</td></tr>
+        <tr><td style="padding:6px; border-bottom:1px solid var(--border);">Client's task</td><td style="padding:6px; border-bottom:1px solid var(--border);">Report, describe, recall</td><td style="padding:6px; border-bottom:1px solid var(--border);">Analyze, synthesize, apply</td></tr>
+        <tr><td style="padding:6px;">Answers are...</td><td style="padding:6px;">Already known to client</td><td style="padding:6px;">Discovered in the moment</td></tr>
+      </table>
+      <p><strong>Leading Question Trap:</strong> "Don't you think the conditions made it impossible?" is NOT analytical &mdash; it's leading. True analytical questions are OPEN: "What do you notice when you compare the conditions to your expectation?"</p>
+    </div>
+
+    <h4>Behavioral Anchors <span class="badge badge-adapted">Adapted</span></h4>
+    <div class="score-card s0" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score0)">Score 0 &mdash; Needs Significant Improvement</div><div class="score-body">No analytical/synthesizing questions. Therapist draws conclusions, gives advice, or only asks informational questions.</div></div>
+    <div class="score-card s1" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score1)">Score 1 &mdash; Needs Improvement</div><div class="score-body">One vague/generic analytical question. Not linked to specific content. Therapist partially answers own question. Poor timing. Takes credit for insights.</div></div>
+    <div class="score-card s2" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score2)">Score 2 &mdash; Competent</div><div class="score-body">At least one clearly analytical question connected to discussion. Relevant to clinical model. Yoav given space. Limited follow-up. No reference to summary.</div></div>
+    <div class="score-card s3" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score3)">Score 3 &mdash; Strengths in Evidence</div><div class="score-body">Multiple analytical/synthesizing questions building on discussion. Model-linked. References summary/key observations. Credits Yoav. Follow-up deepens answers.</div></div>
+    <div class="score-card s4" onclick="toggleScore(this)"><div class="score-label" style="color:var(--score4)">Score 4 &mdash; Outstanding Strength</div><div class="score-body">Multiple well-crafted synthesizing AND analytical questions. Precisely model-linked. References summary. Full space. Credits all discoveries. Adapts to resistance with alternative questions. Promotes hope and application.</div></div>
+
+    <h4>Common Errors (7) <span class="badge badge-clinical">Clinical Knowledge</span></h4>
+    <div class="error-item"><div class="error-num">1</div><div>Conflating with Item 1 (informational questions)</div></div>
+    <div class="error-item"><div class="error-num">2</div><div>Crediting therapist-provided insights instead of client discovery</div></div>
+    <div class="error-item"><div class="error-num">3</div><div>Counting leading questions as analytical</div></div>
+    <div class="error-item"><div class="error-num">4</div><div>Over-crediting vague analytical questions ("What do you think?")</div></div>
+    <div class="error-item"><div class="error-num">5</div><div>Ignoring timing (analytical before information gathered)</div></div>
+    <div class="error-item"><div class="error-num">6</div><div>Confusing client's spontaneous insight with therapist skill</div></div>
+    <div class="error-item"><div class="error-num">7</div><div>Rating quantity over quality</div></div>
+  </div>
+</section>
+
+<!-- ===== AGGREGATION ===== -->
+<section id="aggregation">
+  <h2>Aggregation Pass</h2>
+  <p><strong>File:</strong> <code>prompts/rater_prompt_aggregation.md</code> &mdash; Pass 5, receives the 4 item rating JSONs.</p>
+
+  <div class="card">
+    <h4>What It Does <span class="badge badge-design">Design Choice</span></h4>
+    <ol>
+      <li><strong>Compile scores</strong> &mdash; Extract Item 1-4 scores, calculate total (0-16)</li>
+      <li><strong>Consistency check</strong> &mdash; Flag genuine contradictions across items (diverse scores are normal)</li>
+      <li><strong>Competence threshold</strong> &mdash; Total &ge; 8 = MEETS; &lt; 8 = DOES NOT MEET</li>
+      <li><strong>Developmental feedback</strong> &mdash; Strengths, development areas, 3 recommendations</li>
+      <li><strong>Session characterization</strong> &mdash; Which SD stages present/absent/partial</li>
+    </ol>
+    <p><strong>Rule:</strong> The aggregation pass does NOT re-rate. It uses scores as given. <span class="badge badge-design">Design Choice</span></p>
+  </div>
+
+  <h4>Output Format</h4>
+<div class="json-block">{
+  <span class="json-key">"transcript_id"</span>: <span class="json-str">"T001"</span>,
+  <span class="json-key">"scores"</span>: {
+    <span class="json-key">"item1"</span>: <span class="json-num">3</span>, <span class="json-key">"item2"</span>: <span class="json-num">2</span>,
+    <span class="json-key">"item3"</span>: <span class="json-num">1</span>, <span class="json-key">"item4"</span>: <span class="json-num">2</span>,
+    <span class="json-key">"total"</span>: <span class="json-num">8</span>
+  },
+  <span class="json-key">"competence_threshold"</span>: {
+    <span class="json-key">"meets_threshold"</span>: <span class="json-num">true</span>,
+    <span class="json-key">"threshold"</span>: <span class="json-num">8</span>
+  },
+  <span class="json-key">"developmental_feedback"</span>: {
+    <span class="json-key">"primary_strengths"</span>: [<span class="json-str">"..."</span>],
+    <span class="json-key">"primary_development_areas"</span>: [<span class="json-str">"..."</span>],
+    <span class="json-key">"top_recommendations"</span>: [<span class="json-str">"..."</span>]
+  },
+  <span class="json-key">"summary_narrative"</span>: <span class="json-str">"..."</span>
+}</div>
+</section>
+
+<!-- ===== SIMULATION ===== -->
+<section id="simulation">
+  <h2>Simulation: How a Rating Looks</h2>
+  <p>Walk through a complete example of how the AI rater processes a single therapist turn for <strong>Item 1: Informational Questions</strong>.</p>
+
+  <div class="sim-container">
+    <div class="sim-header">Rating Walkthrough &mdash; Item 1: Informational Questions</div>
+    <div class="sim-progress">
+      <div class="sim-progress-step" id="sp1"></div>
+      <div class="sim-progress-step" id="sp2"></div>
+      <div class="sim-progress-step" id="sp3"></div>
+      <div class="sim-progress-step" id="sp4"></div>
+      <div class="sim-progress-step" id="sp5"></div>
+      <div class="sim-progress-step" id="sp6"></div>
+    </div>
+
+    <div class="sim-step" onclick="toggleSim(1)">
+      <span class="sim-step-num">1</span>
+      <span class="sim-step-title">The Transcript Arrives</span>
+    </div>
+    <div class="sim-detail" id="sim-d1">
+      <p>The pipeline sends the full 10-turn Hebrew transcript to the API. Here's a sample therapist turn:</p>
+      <div class="hebrew-example">
+        <strong>:מטפל (תור 3)</strong><br>
+        ספר לי יותר על הרגע שניסית להגיע לנדב. מה היו התנאים בשטח? מה ראית, מה שמעת?
+      </div>
+      <p>This turn contains: an open-ended request ("ספר לי יותר"), specific follow-up about the situation ("מה היו התנאים"), and multi-sensory probing ("מה ראית, מה שמעת").</p>
+    </div>
+
+    <div class="sim-step" onclick="toggleSim(2)">
+      <span class="sim-step-num">2</span>
+      <span class="sim-step-title">Evidence Extraction</span>
+    </div>
+    <div class="sim-detail" id="sim-d2">
+      <p>The rater goes through EVERY therapist turn and extracts quotes relevant to Item 1:</p>
+      <div class="json-block" style="font-size:11px;">{
+  <span class="json-key">"turn"</span>: <span class="json-num">3</span>,
+  <span class="json-key">"quote"</span>: <span class="json-str">"ספר לי יותר על הרגע שניסית להגיע לנדב. מה היו התנאים בשטח? מה ראית, מה שמעת?"</span>,
+  <span class="json-key">"classification"</span>: <span class="json-str">"Open-ended, multi-angle informational question with sensory detail pursuit"</span>,
+  <span class="json-key">"level"</span>: <span class="json-str">"Score 3: Specific, model-informed, multiple perspectives"</span>
+}</div>
+      <p>This is repeated for ALL therapist turns, building a complete evidence table.</p>
+    </div>
+
+    <div class="sim-step" onclick="toggleSim(3)">
+      <span class="sim-step-num">3</span>
+      <span class="sim-step-title">Identify Absent Behaviors</span>
+    </div>
+    <div class="sim-detail" id="sim-d3">
+      <p>The rater checks: what SHOULD have been present for scores 3-4 but wasn't?</p>
+      <ul>
+        <li><strong>Present:</strong> Open-ended questions, sensory detail pursuit, multiple angles</li>
+        <li><strong>Absent:</strong> No questions examining assumptions ("What does 'fast enough' mean to you?"), no noticing of what client didn't mention, no adaptation when client showed resistance</li>
+      </ul>
+      <p>These absences are important evidence &mdash; they cap the score.</p>
+    </div>
+
+    <div class="sim-step" onclick="toggleSim(4)">
+      <span class="sim-step-num">4</span>
+      <span class="sim-step-title">Determine Predominant Pattern</span>
+    </div>
+    <div class="sim-detail" id="sim-d4">
+      <p>Looking across all 10 turns:</p>
+      <ul>
+        <li>Turns 1-3: Good open-ended questions with follow-up</li>
+        <li>Turns 4-6: Some closed-ended questions creep in</li>
+        <li>Turns 7-10: Returns to open-ended but becomes more leading</li>
+      </ul>
+      <p><strong>Predominant pattern:</strong> "Competent with moments of strength. Mostly open-ended, shows genuine curiosity and some clinical awareness, but inconsistent follow-up and occasional drift toward leading questions."</p>
+    </div>
+
+    <div class="sim-step" onclick="toggleSim(5)">
+      <span class="sim-step-num">5</span>
+      <span class="sim-step-title">Assign Score</span>
+    </div>
+    <div class="sim-detail" id="sim-d5">
+      <p>Based on the evidence:</p>
+      <div style="text-align:center; padding:16px;">
+        <span style="font-size:48px; font-weight:800; color:var(--score2);">2</span>
+        <div style="font-size:14px; color:var(--text-light);">Competent</div>
+      </div>
+      <p>The evidence consistently points to Score 2: several open-ended questions, some curiosity, some follow-up but inconsistent.</p>
+    </div>
+
+    <div class="sim-step" onclick="toggleSim(6)">
+      <span class="sim-step-num">6</span>
+      <span class="sim-step-title">Justify: Why Not Higher/Lower?</span>
+    </div>
+    <div class="sim-detail" id="sim-d6">
+      <p><strong>Why not Score 3?</strong> Would need: predominantly model-informed questions, topic explored from 2+ angles consistently, minimal gaps. The leading questions in turns 7-10 and inconsistent follow-up prevent a 3.</p>
+      <p><strong>Why not Score 1?</strong> The open-ended questions in turns 1-3 show genuine curiosity beyond checklist questioning. Multiple perspectives attempted even if not sustained. Too much quality for a 1.</p>
+      <div class="json-block" style="font-size:11px;">{
+  <span class="json-key">"item"</span>: <span class="json-str">"Item 1: Informational Questions"</span>,
+  <span class="json-key">"score"</span>: <span class="json-num">2</span>,
+  <span class="json-key">"evidence"</span>: [<span class="json-str">/* ... all extracted evidence ... */</span>],
+  <span class="json-key">"absent_behaviors"</span>: [<span class="json-str">"Examining assumptions"</span>, <span class="json-str">"Noticing absent content"</span>],
+  <span class="json-key">"predominant_pattern"</span>: <span class="json-str">"Competent with moments of strength..."</span>,
+  <span class="json-key">"justification"</span>: <span class="json-str">"Several open-ended questions with clinical relevance..."</span>,
+  <span class="json-key">"why_not_higher"</span>: <span class="json-str">"Leading questions in later turns, inconsistent follow-up..."</span>,
+  <span class="json-key">"why_not_lower"</span>: <span class="json-str">"Genuine curiosity in early turns, multi-sensory probing..."</span>
+}</div>
+      <p>This JSON is then sent to <strong>Pass 5 (Aggregation)</strong> along with the other 3 item ratings.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h4>After All 4 Items Are Rated...</h4>
+    <p>The aggregation pass receives 4 JSONs, compiles the total score, checks consistency, and generates a developmental feedback report. For example:</p>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin:12px 0;">
+      <div style="text-align:center; padding:12px 20px; background:var(--gray-bg); border-radius:8px;">
+        <div style="font-size:11px; color:var(--text-light);">Item 1</div>
+        <div style="font-size:28px; font-weight:700; color:var(--score2);">2</div>
+      </div>
+      <div style="text-align:center; padding:12px 20px; background:var(--gray-bg); border-radius:8px;">
+        <div style="font-size:11px; color:var(--text-light);">Item 2</div>
+        <div style="font-size:28px; font-weight:700; color:var(--score3);">3</div>
+      </div>
+      <div style="text-align:center; padding:12px 20px; background:var(--gray-bg); border-radius:8px;">
+        <div style="font-size:11px; color:var(--text-light);">Item 3</div>
+        <div style="font-size:28px; font-weight:700; color:var(--score1);">1</div>
+      </div>
+      <div style="text-align:center; padding:12px 20px; background:var(--gray-bg); border-radius:8px;">
+        <div style="font-size:11px; color:var(--text-light);">Item 4</div>
+        <div style="font-size:28px; font-weight:700; color:var(--score2);">2</div>
+      </div>
+      <div style="text-align:center; padding:12px 24px; background:var(--blue-bg); border-radius:8px; border:2px solid var(--blue-mid);">
+        <div style="font-size:11px; color:var(--text-light);">Total</div>
+        <div style="font-size:28px; font-weight:700; color:var(--blue-dark);">8/16</div>
+        <div style="font-size:11px; color:var(--green); font-weight:600;">MEETS THRESHOLD</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<section style="margin-top:60px; padding-top:20px; border-top:2px solid var(--border); color: var(--text-light); font-size:12px;">
+  <p>SDRS AI Rater v1.1 &bull; Article 6, MENTI Socratic Fidelity Study &bull; Elad Refoua, ARLAB, Bar-Ilan University &bull; 2026-02-22</p>
+  <p>Based on: Socratic Dialogue Rating Scale &amp; Coding Manual v5.0 &copy; Christine A. Padesky, PhD (2020)</p>
+</section>
+
+</div><!-- .main -->
+
+<!-- Reviewer Name Modal -->
+<div class="reviewer-modal" id="reviewerModal">
+  <div class="modal-box">
+    <h3 style="margin-bottom:8px;">Welcome, Reviewer</h3>
+    <p style="color:var(--text-light); font-size:13px;">Enter your name to start adding notes. Your notes will be saved locally in your browser.</p>
+    <input type="text" id="reviewerNameInput" placeholder="Your name..." onkeydown="if(event.key==='Enter')saveReviewerName()">
+    <br>
+    <button onclick="saveReviewerName()">Start Reviewing</button>
+  </div>
+</div>
+
+<script>
+// ===== Core UI =====
+function toggleAcc(el) {
+  el.classList.toggle('open');
+  const body = el.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+function toggleScore(el) {
+  const body = el.querySelector('.score-body');
+  body.classList.toggle('open');
+}
+
+function switchTab(tabEl, contentId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  tabEl.classList.add('active');
+  document.getElementById(contentId).classList.add('active');
+}
+
+function scrollTo(sel) {
+  const el = document.querySelector(sel);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Highlight active sidebar link on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.sidebar nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.remove('active');
+    if (a.getAttribute('href') === '#' + current) a.classList.add('active');
+  });
+});
+
+// ===== Simulation =====
+let activeSim = 0;
+function toggleSim(n) {
+  const detail = document.getElementById('sim-d' + n);
+  const step = detail.previousElementSibling;
+  const wasOpen = detail.classList.contains('open');
+
+  // Close all
+  document.querySelectorAll('.sim-detail').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.sim-step').forEach(s => s.classList.remove('active'));
+
+  if (!wasOpen) {
+    detail.classList.add('open');
+    step.classList.add('active');
+    activeSim = n;
+  } else {
+    activeSim = 0;
+  }
+
+  // Update progress bar
+  for (let i = 1; i <= 6; i++) {
+    const sp = document.getElementById('sp' + i);
+    sp.className = 'sim-progress-step';
+    if (activeSim > 0) {
+      if (i < activeSim) sp.classList.add('done');
+      if (i === activeSim) sp.classList.add('current');
+    }
+  }
+}
+
+// ===== Notes System =====
+const NOTES_KEY = 'sdrs_reviewer_notes';
+const REVIEWER_KEY = 'sdrs_reviewer_name';
+
+function getReviewerName() {
+  return localStorage.getItem(REVIEWER_KEY) || '';
+}
+
+function saveReviewerName() {
+  const name = document.getElementById('reviewerNameInput').value.trim();
+  if (!name) return;
+  localStorage.setItem(REVIEWER_KEY, name);
+  document.getElementById('reviewerModal').classList.remove('open');
+  // Update all "as X" labels in note forms
+  document.querySelectorAll('.note-form .note-actions span:last-child').forEach(s => {
+    s.textContent = 'as ' + name;
+  });
+}
+
+function getNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveNotes(notes) {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+}
+
+function addNote(sectionId) {
+  if (!getReviewerName()) {
+    document.getElementById('reviewerModal').classList.add('open');
+    document.getElementById('reviewerNameInput').focus();
+    return;
+  }
+  const form = document.getElementById('nf-' + sectionId);
+  if (form) {
+    form.classList.toggle('open');
+    if (form.classList.contains('open')) form.querySelector('textarea').focus();
+  }
+}
+
+function submitNote(sectionId) {
+  const form = document.getElementById('nf-' + sectionId);
+  const text = form.querySelector('textarea').value.trim();
+  if (!text) return;
+
+  const notes = getNotes();
+  if (!notes[sectionId]) notes[sectionId] = [];
+  notes[sectionId].push({
+    author: getReviewerName(),
+    text: text,
+    date: new Date().toLocaleString('en-IL', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'})
+  });
+  saveNotes(notes);
+
+  form.querySelector('textarea').value = '';
+  form.classList.remove('open');
+  renderNotes(sectionId);
+}
+
+function cancelNote(sectionId) {
+  const form = document.getElementById('nf-' + sectionId);
+  form.querySelector('textarea').value = '';
+  form.classList.remove('open');
+}
+
+function deleteNote(sectionId, idx) {
+  const notes = getNotes();
+  if (notes[sectionId]) {
+    notes[sectionId].splice(idx, 1);
+    if (notes[sectionId].length === 0) delete notes[sectionId];
+    saveNotes(notes);
+    renderNotes(sectionId);
+  }
+}
+
+function renderNotes(sectionId) {
+  const container = document.getElementById('nl-' + sectionId);
+  if (!container) return;
+  const notes = getNotes();
+  const sectionNotes = notes[sectionId] || [];
+  container.innerHTML = sectionNotes.map((n, i) =>
+    '<div class="note-item">' +
+      '<div class="note-meta">' + n.author + ' &bull; ' + n.date + '</div>' +
+      '<div>' + n.text.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' +
+      '<button class="note-delete" onclick="deleteNote(\'' + sectionId + '\',' + i + ')" title="Delete">&times;</button>' +
+    '</div>'
+  ).join('');
+}
+
+// Inject note buttons into all section headings and accordion headers
+function injectNoteUI() {
+  const targets = [
+    { sel: '#master > h2', id: 'master' },
+    { sel: '#master-role .accordion-header', id: 'master-role' },
+    { sel: '#master-context .accordion-header', id: 'master-context' },
+    { sel: '#master-bias .accordion-header', id: 'master-bias' },
+    { sel: '#master-procedure .accordion-header', id: 'master-procedure' },
+    { sel: '#knowledge > h2', id: 'knowledge' },
+    { sel: '#kb-discovery .accordion-header', id: 'kb-discovery' },
+    { sel: '#kb-collab .accordion-header', id: 'kb-collab' },
+    { sel: '#kb-stages .accordion-header', id: 'kb-stages' },
+    { sel: '#kb-expert .accordion-header', id: 'kb-expert' },
+    { sel: '#kb-errors .accordion-header', id: 'kb-errors' },
+    { sel: '#kb-ptsd .accordion-header', id: 'kb-ptsd' },
+    { sel: '#items > h2', id: 'items' },
+    { sel: '#aggregation > h2', id: 'aggregation' },
+    { sel: '#overview > h2', id: 'overview' },
+    { sel: '#sources > h2', id: 'sources' },
+  ];
+
+  targets.forEach(t => {
+    const el = document.querySelector(t.sel);
+    if (!el) return;
+
+    // Add note button
+    const btn = document.createElement('span');
+    btn.className = 'note-btn';
+    btn.innerHTML = '&#9998; Note';
+    btn.onclick = function(e) { e.stopPropagation(); addNote(t.id); };
+    el.appendChild(btn);
+
+    // Add note form after the element (or after accordion body)
+    const isAccordion = el.classList.contains('accordion-header');
+    const insertAfter = isAccordion ? el.nextElementSibling : el;
+
+    const form = document.createElement('div');
+    form.className = 'note-form';
+    form.id = 'nf-' + t.id;
+    form.innerHTML =
+      '<textarea placeholder="Write your note here..."></textarea>' +
+      '<div class="note-actions">' +
+        '<button class="note-save" onclick="submitNote(\'' + t.id + '\')">Save Note</button>' +
+        '<button class="note-cancel" onclick="cancelNote(\'' + t.id + '\')">Cancel</button>' +
+        '<span style="margin-left:auto; font-size:11px; color:var(--text-light);">as ' + (getReviewerName() || 'reviewer') + '</span>' +
+      '</div>';
+    insertAfter.after(form);
+
+    // Add notes list
+    const list = document.createElement('div');
+    list.className = 'notes-list';
+    list.id = 'nl-' + t.id;
+    form.after(list);
+
+    // Render existing notes
+    renderNotes(t.id);
+  });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', injectNoteUI);
+</script>
+
+</body>
+</html>
