@@ -896,30 +896,48 @@ li { margin-bottom: 4px; }
 
     <div class="sim-step" onclick="toggleSim(1)">
       <span class="sim-step-num">1</span>
-      <span class="sim-step-title">The Transcript Arrives</span>
+      <span class="sim-step-title">The Prompt is Assembled</span>
     </div>
     <div class="sim-detail" id="sim-d1">
-      <p>The pipeline sends the full 10-turn Hebrew transcript to the API. Here's a sample therapist turn:</p>
-      <div class="hebrew-example">
-        <strong>:מטפל (תור 3)</strong><br>
-        ספר לי יותר על הרגע שניסית להגיע לנדב. מה היו התנאים בשטח? מה ראית, מה שמעת?
+      <p>For <strong>Pass 1 (Informational Questions)</strong>, the pipeline assembles the API call with two parts:</p>
+
+      <div class="card" style="margin:12px 0; border-left:4px solid var(--blue-mid);">
+        <h4 style="margin-top:0; color:var(--blue-mid);">SYSTEM PROMPT <span class="badge badge-padesky">rater_master_instructions.md</span></h4>
+        <p style="font-size:12px; color:var(--text-light); margin:0;">Contains: Role ("You are a clinical assessment instrument..."), Context (Yoav's profile), Deep Knowledge Base (SD theory, collaborative empiricism, 4 stages, expert markers, common errors, PTSD context), 9 Anti-Bias Rules, 6-Step Rating Procedure, JSON Output Format</p>
+        <p style="font-size:11px; margin:8px 0 0; color:var(--blue-mid);">~3,500 words &bull; Same for all 4 rating passes</p>
       </div>
-      <p>This turn contains: an open-ended request ("ספר לי יותר"), specific follow-up about the situation ("מה היו התנאים"), and multi-sensory probing ("מה ראית, מה שמעת").</p>
+
+      <div class="card" style="margin:12px 0; border-left:4px solid var(--green);">
+        <h4 style="margin-top:0; color:var(--green);">USER PROMPT <span class="badge badge-adapted">rater_prompt_item1.md</span></h4>
+        <p style="font-size:12px; color:var(--text-light); margin:0;">Contains: Item 1 Definition ("informational questions asked were appropriate, asked with genuine curiosity..."), 5 Behavioral Anchors (Score 0-4 with Hebrew examples), 6 Focus Dimensions, Item 1 vs. Item 4 discrimination rules, 7 Common Rating Errors</p>
+        <p style="font-size:11px; margin:8px 0 0; color:var(--green);">~1,200 words &bull; Unique per item</p>
+      </div>
+
+      <div class="card" style="margin:12px 0; border-left:4px solid #999;">
+        <h4 style="margin-top:0; color:var(--gray);">+ TRANSCRIPT (appended to user prompt)</h4>
+        <div class="hebrew-example">
+          <strong>:מטפל (תור 3)</strong><br>
+          ספר לי יותר על הרגע שניסית להגיע לנדב. מה היו התנאים בשטח? מה ראית, מה שמעת?
+        </div>
+        <p style="font-size:11px; margin:0; color:var(--gray);">Full 10-turn conversation in Hebrew</p>
+      </div>
+
+      <p>The API receives <strong>~5,000 words of instructions</strong> + the transcript. Temperature is set to <strong>0.0</strong> for deterministic output.</p>
     </div>
 
     <div class="sim-step" onclick="toggleSim(2)">
       <span class="sim-step-num">2</span>
-      <span class="sim-step-title">Evidence Extraction</span>
+      <span class="sim-step-title">Evidence Extraction (Step 2 of Rating Procedure)</span>
     </div>
     <div class="sim-detail" id="sim-d2">
-      <p>The rater goes through EVERY therapist turn and extracts quotes relevant to Item 1:</p>
+      <p>Following the 6-step procedure from the system prompt, the rater first reads the full transcript (Step 1), then goes through EVERY therapist turn extracting quotes relevant to Item 1:</p>
       <div class="json-block" style="font-size:11px;">{
   <span class="json-key">"turn"</span>: <span class="json-num">3</span>,
   <span class="json-key">"quote"</span>: <span class="json-str">"ספר לי יותר על הרגע שניסית להגיע לנדב. מה היו התנאים בשטח? מה ראית, מה שמעת?"</span>,
   <span class="json-key">"classification"</span>: <span class="json-str">"Open-ended, multi-angle informational question with sensory detail pursuit"</span>,
   <span class="json-key">"level"</span>: <span class="json-str">"Score 3: Specific, model-informed, multiple perspectives"</span>
 }</div>
-      <p>This is repeated for ALL therapist turns, building a complete evidence table.</p>
+      <p>This is repeated for ALL therapist turns, building a complete evidence table. The behavioral anchors from the item prompt guide the classification.</p>
     </div>
 
     <div class="sim-step" onclick="toggleSim(3)">
@@ -984,8 +1002,13 @@ li { margin-bottom: 4px; }
   </div>
 
   <div class="card" style="margin-top:20px;">
-    <h4>After All 4 Items Are Rated...</h4>
-    <p>The aggregation pass receives 4 JSONs, compiles the total score, checks consistency, and generates a developmental feedback report. For example:</p>
+    <h4>After All 4 Items Are Rated &rarr; Pass 5 (Aggregation)</h4>
+    <div class="card" style="margin:12px 0; border-left:4px solid var(--purple);">
+      <h4 style="margin-top:0; color:var(--purple);">AGGREGATION PROMPT <span class="badge badge-design">rater_prompt_aggregation.md</span></h4>
+      <p style="font-size:12px; color:var(--text-light); margin:0;">System: Same master instructions &bull; User: "Here are the 4 item rating JSONs. Compile scores, check consistency, calculate total (0-16), determine competence threshold (&ge;8), generate developmental feedback."</p>
+      <p style="font-size:11px; margin:8px 0 0; color:var(--purple);">This agent does NOT re-rate &mdash; it uses the scores as given and synthesizes feedback.</p>
+    </div>
+    <p>The aggregation pass compiles the total score, checks consistency, and generates a developmental feedback report:</p>
     <div style="display:flex; gap:16px; flex-wrap:wrap; margin:12px 0;">
       <div style="text-align:center; padding:12px 20px; background:var(--gray-bg); border-radius:8px;">
         <div style="font-size:11px; color:var(--text-light);">Item 1</div>
@@ -1100,9 +1123,12 @@ function toggleSim(n) {
   }
 }
 
-// ===== Notes System =====
-const NOTES_KEY = 'sdrs_reviewer_notes';
+// ===== Notes System (Cloud Shared via jsonblob.com) =====
+const BLOB_ID = '019c8520-0c25-7943-8f4a-c256bb81f876';
+const BLOB_URL = 'https://jsonblob.com/api/jsonBlob/' + BLOB_ID;
 const REVIEWER_KEY = 'sdrs_reviewer_name';
+let cloudNotes = {};
+let notesSyncing = false;
 
 function getReviewerName() {
   return localStorage.getItem(REVIEWER_KEY) || '';
@@ -1113,19 +1139,32 @@ function saveReviewerName() {
   if (!name) return;
   localStorage.setItem(REVIEWER_KEY, name);
   document.getElementById('reviewerModal').classList.remove('open');
-  // Update all "as X" labels in note forms
   document.querySelectorAll('.note-form .note-actions span:last-child').forEach(s => {
     s.textContent = 'as ' + name;
   });
 }
 
-function getNotes() {
-  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); }
-  catch { return {}; }
+async function fetchNotes() {
+  try {
+    const r = await fetch(BLOB_URL, { headers: { 'Accept': 'application/json' } });
+    if (r.ok) {
+      const data = await r.json();
+      cloudNotes = data.notes || {};
+    }
+  } catch (e) { console.warn('Notes fetch failed, using local cache', e); }
 }
 
-function saveNotes(notes) {
-  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+async function pushNotes() {
+  if (notesSyncing) return;
+  notesSyncing = true;
+  try {
+    await fetch(BLOB_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ notes: cloudNotes })
+    });
+  } catch (e) { console.warn('Notes push failed', e); }
+  notesSyncing = false;
 }
 
 function addNote(sectionId) {
@@ -1141,23 +1180,22 @@ function addNote(sectionId) {
   }
 }
 
-function submitNote(sectionId) {
+async function submitNote(sectionId) {
   const form = document.getElementById('nf-' + sectionId);
   const text = form.querySelector('textarea').value.trim();
   if (!text) return;
 
-  const notes = getNotes();
-  if (!notes[sectionId]) notes[sectionId] = [];
-  notes[sectionId].push({
+  if (!cloudNotes[sectionId]) cloudNotes[sectionId] = [];
+  cloudNotes[sectionId].push({
     author: getReviewerName(),
     text: text,
     date: new Date().toLocaleString('en-IL', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'})
   });
-  saveNotes(notes);
 
   form.querySelector('textarea').value = '';
   form.classList.remove('open');
   renderNotes(sectionId);
+  await pushNotes();
 }
 
 function cancelNote(sectionId) {
@@ -1166,21 +1204,19 @@ function cancelNote(sectionId) {
   form.classList.remove('open');
 }
 
-function deleteNote(sectionId, idx) {
-  const notes = getNotes();
-  if (notes[sectionId]) {
-    notes[sectionId].splice(idx, 1);
-    if (notes[sectionId].length === 0) delete notes[sectionId];
-    saveNotes(notes);
+async function deleteNote(sectionId, idx) {
+  if (cloudNotes[sectionId]) {
+    cloudNotes[sectionId].splice(idx, 1);
+    if (cloudNotes[sectionId].length === 0) delete cloudNotes[sectionId];
     renderNotes(sectionId);
+    await pushNotes();
   }
 }
 
 function renderNotes(sectionId) {
   const container = document.getElementById('nl-' + sectionId);
   if (!container) return;
-  const notes = getNotes();
-  const sectionNotes = notes[sectionId] || [];
+  const sectionNotes = cloudNotes[sectionId] || [];
   container.innerHTML = sectionNotes.map((n, i) =>
     '<div class="note-item">' +
       '<div class="note-meta">' + n.author + ' &bull; ' + n.date + '</div>' +
@@ -1249,8 +1285,19 @@ function injectNoteUI() {
   });
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', injectNoteUI);
+// Initialize on page load: fetch cloud notes, then inject UI
+document.addEventListener('DOMContentLoaded', async () => {
+  await fetchNotes();
+  injectNoteUI();
+  // Auto-refresh notes every 30 seconds
+  setInterval(async () => {
+    await fetchNotes();
+    document.querySelectorAll('.notes-list').forEach(el => {
+      const id = el.id.replace('nl-', '');
+      renderNotes(id);
+    });
+  }, 30000);
+});
 </script>
 
 </body>
