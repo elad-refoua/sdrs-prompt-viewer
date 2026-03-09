@@ -1,3 +1,11 @@
 {
-  "notes": {}
+  "notes": {
+    "overview": [
+      {
+        "author": "Test Reviewer",
+        "text": "Test note from Playwright verification",
+        "date": "09/03/2026, 23:42"
+      }
+    ]
+  }
 }
