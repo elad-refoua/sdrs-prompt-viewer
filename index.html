@@ -1123,12 +1123,10 @@ function toggleSim(n) {
   }
 }
 
-// ===== Notes System (Cloud Shared via jsonblob.com) =====
-const BLOB_ID = '019c8520-0c25-7943-8f4a-c256bb81f876';
-const BLOB_URL = 'https://jsonblob.com/api/jsonBlob/' + BLOB_ID;
+// ===== Notes System (Cloud Shared via Vercel API + GitHub Storage) =====
+const NOTES_API = 'https://sdrs-notes-api.vercel.app/api/notes';
 const REVIEWER_KEY = 'sdrs_reviewer_name';
 let cloudNotes = {};
-let notesSyncing = false;
 
 function getReviewerName() {
   return localStorage.getItem(REVIEWER_KEY) || '';
@@ -1146,25 +1144,12 @@ function saveReviewerName() {
 
 async function fetchNotes() {
   try {
-    const r = await fetch(BLOB_URL, { headers: { 'Accept': 'application/json' } });
+    const r = await fetch(NOTES_API);
     if (r.ok) {
       const data = await r.json();
       cloudNotes = data.notes || {};
     }
-  } catch (e) { console.warn('Notes fetch failed, using local cache', e); }
-}
-
-async function pushNotes() {
-  if (notesSyncing) return;
-  notesSyncing = true;
-  try {
-    await fetch(BLOB_URL, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ notes: cloudNotes })
-    });
-  } catch (e) { console.warn('Notes push failed', e); }
-  notesSyncing = false;
+  } catch (e) { console.warn('Notes fetch failed', e); }
 }
 
 function addNote(sectionId) {
@@ -1185,17 +1170,27 @@ async function submitNote(sectionId) {
   const text = form.querySelector('textarea').value.trim();
   if (!text) return;
 
-  if (!cloudNotes[sectionId]) cloudNotes[sectionId] = [];
-  cloudNotes[sectionId].push({
+  const note = {
     author: getReviewerName(),
     text: text,
     date: new Date().toLocaleString('en-IL', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'})
-  });
+  };
+
+  try {
+    const r = await fetch(NOTES_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionId, note })
+    });
+    if (r.ok) {
+      const data = await r.json();
+      cloudNotes = data.notes || {};
+    }
+  } catch (e) { console.warn('Note save failed', e); }
 
   form.querySelector('textarea').value = '';
   form.classList.remove('open');
   renderNotes(sectionId);
-  await pushNotes();
 }
 
 function cancelNote(sectionId) {
@@ -1205,11 +1200,18 @@ function cancelNote(sectionId) {
 }
 
 async function deleteNote(sectionId, idx) {
-  if (cloudNotes[sectionId]) {
-    cloudNotes[sectionId].splice(idx, 1);
-    if (cloudNotes[sectionId].length === 0) delete cloudNotes[sectionId];
-    renderNotes(sectionId);
-    await pushNotes();
+  try {
+    const r = await fetch(NOTES_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionId, action: 'delete', noteIndex: idx })
+    });
+    if (r.ok) {
+      const data = await r.json();
+      cloudNotes = data.notes || {};
+    }
+  } catch (e) { console.warn('Note delete failed', e); }
+  renderNotes(sectionId);
   }
 }
 
